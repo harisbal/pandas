@@ -26,8 +26,9 @@ from pandas.core.dtypes.common import (
     _is_unorderable_exception, ensure_platform_int, is_bool,
     is_categorical_dtype, is_datetime64tz_dtype, is_datetimelike, is_dict_like,
     is_extension_array_dtype, is_extension_type, is_float_dtype, is_hashable,
-    is_integer, is_integer_dtype, is_iterator, is_list_like, is_object_dtype,
-    is_scalar, is_string_like, is_timedelta64_dtype, pandas_dtype)
+    is_integer, is_integer_dtype, is_iterator, is_list_like, is_numeric_dtype,
+    is_object_dtype, is_scalar, is_string_like, is_timedelta64_dtype,
+    pandas_dtype)
 from pandas.core.dtypes.generic import (
     ABCDataFrame, ABCIndexClass, ABCSeries, ABCSparseArray, ABCSparseSeries)
 from pandas.core.dtypes.missing import (
@@ -1885,6 +1886,18 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
         else:
             # scalar
             return result
+
+    def perc(self, decimals=None):
+
+        if is_numeric_dtype(self._data):
+            result = self._data.div(self._data.sum())
+            if decimals:
+                result = result.round(decimals)
+
+            return self._constructor(result,
+                                     index=self.index,
+                                     name=self.name)
+
 
     def corr(self, other, method='pearson', min_periods=None):
         """
