@@ -1,26 +1,26 @@
 """Utilities for conversion to writer-agnostic Excel representation
 """
 
+from functools import reduce
+import itertools
 import re
 import warnings
-import itertools
 
 import numpy as np
 
-from pandas.compat import reduce
+from pandas.core.dtypes import missing
+from pandas.core.dtypes.common import is_float, is_scalar
+from pandas.core.dtypes.generic import ABCMultiIndex, ABCPeriodIndex
+
+from pandas import Index
 import pandas.core.common as com
 
-from pandas.core.dtypes.common import is_float, is_scalar
-from pandas.core.dtypes import missing
-from pandas.core.dtypes.generic import ABCMultiIndex, ABCPeriodIndex
-from pandas import Index
-
 from pandas.io.formats.css import CSSResolver, CSSWarning
-from pandas.io.formats.printing import pprint_thing
 from pandas.io.formats.format import get_level_lengths
+from pandas.io.formats.printing import pprint_thing
 
 
-class ExcelCell(object):
+class ExcelCell:
     __fields__ = ('row', 'col', 'val', 'style', 'mergestart', 'mergeend')
     __slots__ = __fields__
 
@@ -34,7 +34,7 @@ class ExcelCell(object):
         self.mergeend = mergeend
 
 
-class CSSToExcelConverter(object):
+class CSSToExcelConverter:
     """A callable for converting CSS declarations to ExcelWriter styles
 
     Supports parts of CSS 2.2, with minimal CSS 3.0 support (e.g. text-shadow),
@@ -57,8 +57,7 @@ class CSSToExcelConverter(object):
 
     def __init__(self, inherited=None):
         if inherited is not None:
-            inherited = self.compute_css(inherited,
-                                         self.compute_css.INITIAL_STYLE)
+            inherited = self.compute_css(inherited)
 
         self.inherited = inherited
 
@@ -309,7 +308,7 @@ class CSSToExcelConverter(object):
         return {'format_code': props.get('number-format')}
 
 
-class ExcelFormatter(object):
+class ExcelFormatter:
     """
     Class for formatting a DataFrame to a list of ExcelCells,
 
@@ -430,9 +429,9 @@ class ExcelFormatter(object):
                 name = columns.names[lnum]
                 yield ExcelCell(lnum, coloffset, name, self.header_style)
 
-            for lnum, (spans, levels, labels) in enumerate(zip(
-                    level_lengths, columns.levels, columns.labels)):
-                values = levels.take(labels)
+            for lnum, (spans, levels, level_codes) in enumerate(zip(
+                    level_lengths, columns.levels, columns.codes)):
+                values = levels.take(level_codes)
                 for i in spans:
                     if spans[i] > 1:
                         yield ExcelCell(lnum, coloffset + i + 1, values[i],
@@ -573,11 +572,11 @@ class ExcelFormatter(object):
                                                   names=False)
                 level_lengths = get_level_lengths(level_strs)
 
-                for spans, levels, labels in zip(level_lengths,
-                                                 self.df.index.levels,
-                                                 self.df.index.labels):
+                for spans, levels, level_codes in zip(level_lengths,
+                                                      self.df.index.levels,
+                                                      self.df.index.codes):
 
-                    values = levels.take(labels,
+                    values = levels.take(level_codes,
                                          allow_fill=levels._can_hold_na,
                                          fill_value=True)
 

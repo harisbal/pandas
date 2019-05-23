@@ -1,28 +1,35 @@
-# -*- coding: utf-8 -*-
 import numbers
+from operator import le, lt
 
 from cpython.object cimport (Py_EQ, Py_NE, Py_GT, Py_LT, Py_GE, Py_LE,
                              PyObject_RichCompare)
 
-cimport cython
-from cython cimport Py_ssize_t
+import cython
+from cython import Py_ssize_t
 
 import numpy as np
-from numpy cimport ndarray
+cimport numpy as cnp
+from numpy cimport (
+    int64_t, int32_t, float64_t, float32_t, uint64_t,
+    ndarray,
+    PyArray_ArgSort, NPY_QUICKSORT, PyArray_Take)
+cnp.import_array()
 
-from operator import le, lt
 
-cimport util
-util.import_array()
+cimport pandas._libs.util as util
 
-from tslibs import Timestamp
-from tslibs.timezones cimport tz_compare
+from pandas._libs.hashtable cimport Int64Vector, Int64VectorData
+from pandas._libs.tslibs.util cimport is_integer_object, is_float_object
+
+from pandas._libs.tslibs import Timestamp
+from pandas._libs.tslibs.timedeltas import Timedelta
+from pandas._libs.tslibs.timezones cimport tz_compare
 
 
 _VALID_CLOSED = frozenset(['left', 'right', 'both', 'neither'])
 
 
-cdef class IntervalMixin(object):
+cdef class IntervalMixin:
 
     @property
     def closed_left(self):
@@ -98,12 +105,7 @@ cdef class IntervalMixin(object):
     @property
     def length(self):
         """Return the length of the Interval"""
-        try:
-            return self.right - self.left
-        except TypeError:
-            # length not defined for some types, e.g. string
-            msg = 'cannot compute length between {left!r} and {right!r}'
-            raise TypeError(msg.format(left=self.left, right=self.right))
+        return self.right - self.left
 
     def _check_closed_matches(self, other, name='other'):
         """Check if the closed attribute of `other` matches.
@@ -144,12 +146,19 @@ cdef class Interval(IntervalMixin):
         Left bound for the interval.
     right : orderable scalar
         Right bound for the interval.
-    closed : {'left', 'right', 'both', 'neither'}, default 'right'
-        Whether the interval is closed on the left-side, right-side, both or
-        neither.
     closed : {'right', 'left', 'both', 'neither'}, default 'right'
         Whether the interval is closed on the left-side, right-side, both or
         neither. See the Notes for more detailed explanation.
+
+    See Also
+    --------
+    IntervalIndex : An Index of Interval objects that are all closed on the
+        same side.
+    cut : Convert continuous data into discrete bins (Categorical
+        of Interval objects).
+    qcut : Convert continuous data into bins (Categorical of Interval objects)
+        based on quantiles.
+    Period : Represents a period of time.
 
     Notes
     -----
@@ -219,16 +228,6 @@ cdef class Interval(IntervalMixin):
     >>> volume_1 = pd.Interval('Ant', 'Dog', closed='both')
     >>> 'Bee' in volume_1
     True
-
-    See Also
-    --------
-    IntervalIndex : An Index of Interval objects that are all closed on the
-        same side.
-    cut : Convert continuous data into discrete bins (Categorical
-        of Interval objects).
-    qcut : Convert continuous data into bins (Categorical of Interval objects)
-        based on quantiles.
-    Period : Represents a period of time.
     """
     _typ = "interval"
 
@@ -247,6 +246,10 @@ cdef class Interval(IntervalMixin):
     def __init__(self, left, right, str closed='right'):
         # note: it is faster to just do these checks than to use a special
         # constructor (__cinit__/__new__) to avoid them
+
+        self._validate_endpoint(left)
+        self._validate_endpoint(right)
+
         if closed not in _VALID_CLOSED:
             msg = "invalid option for 'closed': {closed}".format(closed=closed)
             raise ValueError(msg)
@@ -262,6 +265,14 @@ cdef class Interval(IntervalMixin):
         self.left = left
         self.right = right
         self.closed = closed
+
+    def _validate_endpoint(self, endpoint):
+        # GH 23013
+        if not (is_integer_object(endpoint) or is_float_object(endpoint) or
+                isinstance(endpoint, (Timestamp, Timedelta))):
+            msg = ("Only numeric, Timestamp and Timedelta endpoints "
+                   "are allowed when constructing an Interval.")
+            raise ValueError(msg)
 
     def __hash__(self):
         return hash((self.left, self.right, self.closed))
@@ -380,6 +391,11 @@ cdef class Interval(IntervalMixin):
         bool
             ``True`` if the two intervals overlap, else ``False``.
 
+        See Also
+        --------
+        IntervalArray.overlaps : The corresponding method for IntervalArray.
+        IntervalIndex.overlaps : The corresponding method for IntervalIndex.
+
         Examples
         --------
         >>> i1 = pd.Interval(0, 2)
@@ -402,11 +418,6 @@ cdef class Interval(IntervalMixin):
         >>> i6 = pd.Interval(1, 2, closed='neither')
         >>> i4.overlaps(i6)
         False
-
-        See Also
-        --------
-        IntervalArray.overlaps : The corresponding method for IntervalArray
-        IntervalIndex.overlaps : The corresponding method for IntervalIndex
         """
         if not isinstance(other, Interval):
             msg = '`other` must be an Interval, got {other}'

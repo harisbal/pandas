@@ -2,7 +2,6 @@
 import pytest
 
 from pandas import Interval, Timedelta, Timestamp
-import pandas.util.testing as tm
 
 
 @pytest.fixture(params=[
@@ -17,7 +16,7 @@ def start_shift(request):
     return request.param
 
 
-class TestOverlaps(object):
+class TestOverlaps:
 
     def test_overlaps_self(self, start_shift, closed):
         start, shift = start_shift
@@ -57,5 +56,5 @@ class TestOverlaps(object):
         interval = Interval(0, 1)
         msg = '`other` must be an Interval, got {other}'.format(
             other=type(other).__name__)
-        with tm.assert_raises_regex(TypeError, msg):
+        with pytest.raises(TypeError, match=msg):
             interval.overlaps(other)

@@ -6,7 +6,6 @@
 import tokenize
 import warnings
 
-from pandas.compat import string_types
 from pandas.util._validators import validate_bool_kwarg
 
 from pandas.core.computation.engines import _engines
@@ -205,7 +204,7 @@ def eval(expr, parser='pandas', engine=None, truediv=True,
         A list of objects implementing the ``__getitem__`` special method that
         you can use to inject an additional collection of namespaces to use for
         variable lookup. For example, this is used in the
-        :meth:`~pandas.DataFrame.query` method to inject the
+        :meth:`~DataFrame.query` method to inject the
         ``DataFrame.index`` and ``DataFrame.columns``
         variables that refer to their respective :class:`~pandas.DataFrame`
         instance attributes.
@@ -246,6 +245,11 @@ def eval(expr, parser='pandas', engine=None, truediv=True,
         - Item assignment is provided and `inplace=False`, but the `target`
           does not support the `.copy()` method
 
+    See Also
+    --------
+    DataFrame.query
+    DataFrame.eval
+
     Notes
     -----
     The ``dtype`` of any objects involved in an arithmetic ``%`` operation are
@@ -253,17 +257,12 @@ def eval(expr, parser='pandas', engine=None, truediv=True,
 
     See the :ref:`enhancing performance <enhancingperf.eval>` documentation for
     more details.
-
-    See Also
-    --------
-    pandas.DataFrame.query
-    pandas.DataFrame.eval
     """
     from pandas.core.computation.expr import Expr
 
     inplace = validate_bool_kwarg(inplace, "inplace")
 
-    if isinstance(expr, string_types):
+    if isinstance(expr, str):
         _check_expression(expr)
         exprs = [e.strip() for e in expr.splitlines() if e.strip() != '']
     else:

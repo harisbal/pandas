@@ -1,19 +1,15 @@
-# -*- coding: utf-8 -*-
-from __future__ import print_function
-
 import numpy as np
+
+from pandas.compat import is_platform_32bit, is_platform_windows
+
 import pandas as pd
-
+from pandas import option_context
 import pandas.util.testing as tm
-from pandas.compat import (is_platform_windows,
-                           is_platform_32bit)
-from pandas.core.config import option_context
-
 
 use_32bit_repr = is_platform_windows() or is_platform_32bit()
 
 
-class TestSparseSeriesFormatting(object):
+class TestSparseSeriesFormatting:
 
     @property
     def dtype_format_for_platform(self):
@@ -109,7 +105,7 @@ class TestSparseSeriesFormatting(object):
             assert result == exp
 
 
-class TestSparseDataFrameFormatting(object):
+class TestSparseDataFrameFormatting:
 
     def test_sparse_frame(self):
         # GH 13110

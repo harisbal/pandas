@@ -1,28 +1,24 @@
-# pylint: disable-msg=E1101,W0612
-
-import operator
 from datetime import datetime
+import operator
 
+import numpy as np
+from numpy import nan
 import pytest
 
-from numpy import nan
-import numpy as np
-import pandas as pd
-
-
-from pandas import Series, DataFrame, bdate_range, isna, compat
-from pandas.errors import PerformanceWarning
-from pandas.tseries.offsets import BDay
-import pandas.util.testing as tm
-import pandas.util._test_decorators as td
-from pandas.compat import range, PY36
-from pandas.core.reshape.util import cartesian_product
-
-import pandas.core.sparse.frame as spf
-
 from pandas._libs.sparse import BlockIndex, IntIndex
-from pandas import SparseSeries, SparseDtype
+from pandas.compat import PY36
+from pandas.errors import PerformanceWarning
+import pandas.util._test_decorators as td
+
+import pandas as pd
+from pandas import (
+    DataFrame, Series, SparseDtype, SparseSeries, bdate_range, isna)
+from pandas.core.reshape.util import cartesian_product
+import pandas.core.sparse.frame as spf
 from pandas.tests.series.test_api import SharedWithSparse
+import pandas.util.testing as tm
+
+from pandas.tseries.offsets import BDay
 
 
 def _test_data1():
@@ -160,11 +156,6 @@ class TestSparseSeries(SharedWithSparse):
         df.dtypes
         str(df)
 
-        tm.assert_sp_series_equal(df['col'], self.bseries, check_names=False)
-
-        result = df.iloc[:, 0]
-        tm.assert_sp_series_equal(result, self.bseries, check_names=False)
-
         # blocking
         expected = Series({'col': 'float64:sparse'})
         result = df.ftypes
@@ -264,7 +255,7 @@ class TestSparseSeries(SharedWithSparse):
         assert isinstance(self.iseries.sp_index, IntIndex)
 
         assert self.zbseries.fill_value == 0
-        tm.assert_numpy_array_equal(self.zbseries.values.values,
+        tm.assert_numpy_array_equal(self.zbseries.values.to_dense(),
                                     self.bseries.to_dense().fillna(0).values)
 
         # pass SparseSeries
@@ -331,7 +322,7 @@ class TestSparseSeries(SharedWithSparse):
     def test_constructor_nonnan(self):
         arr = [0, 0, 0, nan, nan]
         sp_series = SparseSeries(arr, fill_value=0)
-        tm.assert_numpy_array_equal(sp_series.values.values, np.array(arr))
+        tm.assert_numpy_array_equal(sp_series.values.to_dense(), np.array(arr))
         assert len(sp_series) == 5
         assert sp_series.shape == (5, )
 
@@ -438,7 +429,7 @@ class TestSparseSeries(SharedWithSparse):
 
     def test_getitem(self):
         def _check_getitem(sp, dense):
-            for idx, val in compat.iteritems(dense):
+            for idx, val in dense.items():
                 tm.assert_almost_equal(val, sp[idx])
 
             for i in range(len(dense)):
@@ -459,12 +450,13 @@ class TestSparseSeries(SharedWithSparse):
         _check_getitem(self.ziseries, self.ziseries.to_dense())
 
         # exception handling
-        pytest.raises(Exception, self.bseries.__getitem__,
-                      len(self.bseries) + 1)
+        with pytest.raises(IndexError, match="Out of bounds access"):
+            self.bseries[len(self.bseries) + 1]
 
         # index not contained
-        pytest.raises(Exception, self.btseries.__getitem__,
-                      self.btseries.index[-1] + BDay())
+        msg = r"Timestamp\('2011-01-31 00:00:00', freq='B'\)"
+        with pytest.raises(KeyError, match=msg):
+            self.btseries[self.btseries.index[-1] + BDay()]
 
     def test_get_get_value(self):
         tm.assert_almost_equal(self.bseries.get(10), self.bseries[10])
@@ -522,7 +514,7 @@ class TestSparseSeries(SharedWithSparse):
                 sparse_result = sp.take(idx)
                 assert isinstance(sparse_result, SparseSeries)
                 tm.assert_almost_equal(dense_result,
-                                       sparse_result.values.values)
+                                       sparse_result.values.to_dense())
 
             _compare([1., 2., 3., 4., 5., 0.])
             _compare([7, 2, 9, 0, 4])
@@ -530,8 +522,9 @@ class TestSparseSeries(SharedWithSparse):
 
         self._check_all(_compare_with_dense)
 
-        pytest.raises(Exception, self.bseries.take,
-                      [0, len(self.bseries) + 1])
+        msg = "index 21 is out of bounds for size 20"
+        with pytest.raises(IndexError, match=msg):
+            self.bseries.take([0, len(self.bseries) + 1])
 
         # Corner case
         # XXX: changed test. Why wsa this considered a corner case?
@@ -553,12 +546,12 @@ class TestSparseSeries(SharedWithSparse):
                                np.take(sp.to_dense(), indices, axis=0))
 
         msg = "the 'out' parameter is not supported"
-        tm.assert_raises_regex(ValueError, msg, np.take,
-                               sp, indices, out=np.empty(sp.shape))
+        with pytest.raises(ValueError, match=msg):
+            np.take(sp, indices, out=np.empty(sp.shape))
 
         msg = "the 'mode' parameter is not supported"
-        tm.assert_raises_regex(ValueError, msg, np.take,
-                               sp, indices, out=None, mode='clip')
+        with pytest.raises(ValueError, match=msg):
+            np.take(sp, indices, out=None, mode='clip')
 
     def test_setitem(self):
         self.bseries[5] = 7.
@@ -776,9 +769,9 @@ class TestSparseSeries(SharedWithSparse):
         first_series = SparseSeries(values1,
                                     sparse_index=IntIndex(length, index1),
                                     fill_value=nan)
-        with tm.assert_raises_regex(TypeError,
-                                    'new index must be a SparseIndex'):
-            reindexed = first_series.sparse_reindex(0)  # noqa
+        with pytest.raises(TypeError,
+                           match='new index must be a SparseIndex'):
+            first_series.sparse_reindex(0)
 
     def test_repr(self):
         # TODO: These aren't used
@@ -848,14 +841,14 @@ class TestSparseSeries(SharedWithSparse):
 
     def test_homogenize(self):
         def _check_matches(indices, expected):
-            data = {}
-            for i, idx in enumerate(indices):
-                data[i] = SparseSeries(idx.to_int_index().indices,
-                                       sparse_index=idx, fill_value=np.nan)
+            data = {i: SparseSeries(idx.to_int_index().indices,
+                                    sparse_index=idx, fill_value=np.nan)
+                    for i, idx in enumerate(indices)}
+
             # homogenized is only valid with NaN fill values
             homogenized = spf.homogenize(data)
 
-            for k, v in compat.iteritems(homogenized):
+            for k, v in homogenized.items():
                 assert (v.sp_index.equals(expected))
 
         indices1 = [BlockIndex(10, [2], [7]), BlockIndex(10, [1, 6], [3, 4]),
@@ -870,7 +863,7 @@ class TestSparseSeries(SharedWithSparse):
         # must have NaN fill value
         data = {'a': SparseSeries(np.arange(7), sparse_index=expected2,
                                   fill_value=0)}
-        with tm.assert_raises_regex(TypeError, "NaN fill value"):
+        with pytest.raises(TypeError, match="NaN fill value"):
             spf.homogenize(data)
 
     def test_fill_value_corner(self):
@@ -1039,7 +1032,7 @@ class TestSparseSeries(SharedWithSparse):
         assert sparse_usage < dense_usage
 
 
-class TestSparseHandlingMultiIndexes(object):
+class TestSparseHandlingMultiIndexes:
 
     def setup_method(self, method):
         miindex = pd.MultiIndex.from_product(
@@ -1069,7 +1062,7 @@ class TestSparseHandlingMultiIndexes(object):
 @pytest.mark.filterwarnings(
     "ignore:the matrix subclass:PendingDeprecationWarning"
 )
-class TestSparseSeriesScipyInteraction(object):
+class TestSparseSeriesScipyInteraction:
     # Issue 8048: add SparseSeries coo methods
 
     def setup_method(self, method):
@@ -1145,25 +1138,35 @@ class TestSparseSeriesScipyInteraction(object):
 
     def test_to_coo_bad_partition_nonnull_intersection(self):
         ss = self.sparse_series[0]
-        pytest.raises(ValueError, ss.to_coo, ['A', 'B', 'C'], ['C', 'D'])
+        msg = "Is not a partition because intersection is not null"
+        with pytest.raises(ValueError, match=msg):
+            ss.to_coo(['A', 'B', 'C'], ['C', 'D'])
 
     def test_to_coo_bad_partition_small_union(self):
         ss = self.sparse_series[0]
-        pytest.raises(ValueError, ss.to_coo, ['A'], ['C', 'D'])
+        msg = "Is not a partition because union is not the whole"
+        with pytest.raises(ValueError, match=msg):
+            ss.to_coo(['A'], ['C', 'D'])
 
     def test_to_coo_nlevels_less_than_two(self):
         ss = self.sparse_series[0]
         ss.index = np.arange(len(ss.index))
-        pytest.raises(ValueError, ss.to_coo)
+        msg = "to_coo requires MultiIndex with nlevels > 2"
+        with pytest.raises(ValueError, match=msg):
+            ss.to_coo()
 
     def test_to_coo_bad_ilevel(self):
         ss = self.sparse_series[0]
-        pytest.raises(KeyError, ss.to_coo, ['A', 'B'], ['C', 'D', 'E'])
+        with pytest.raises(KeyError, match="Level E not found"):
+            ss.to_coo(['A', 'B'], ['C', 'D', 'E'])
 
     def test_to_coo_duplicate_index_entries(self):
         ss = pd.concat([self.sparse_series[0],
                         self.sparse_series[0]]).to_sparse()
-        pytest.raises(ValueError, ss.to_coo, ['A', 'B'], ['C', 'D'])
+        msg = ("Duplicate index entries are not allowed in to_coo"
+               " transformation")
+        with pytest.raises(ValueError, match=msg):
+            ss.to_coo(['A', 'B'], ['C', 'D'])
 
     def test_from_coo_dense_index(self):
         ss = SparseSeries.from_coo(self.coo_matrices[0], dense_index=True)
@@ -1422,7 +1425,7 @@ def _dense_series_compare(s, f):
     tm.assert_series_equal(result.to_dense(), dense_result)
 
 
-class TestSparseSeriesAnalytics(object):
+class TestSparseSeriesAnalytics:
 
     def setup_method(self, method):
         arr, index = _test_data1()
@@ -1444,7 +1447,7 @@ class TestSparseSeriesAnalytics(object):
 
         axis = 1  # Series is 1-D, so only axis = 0 is valid.
         msg = "No axis named {axis}".format(axis=axis)
-        with tm.assert_raises_regex(ValueError, msg):
+        with pytest.raises(ValueError, match=msg):
             self.bseries.cumsum(axis=axis)
 
     def test_numpy_cumsum(self):
@@ -1457,12 +1460,12 @@ class TestSparseSeriesAnalytics(object):
         tm.assert_series_equal(result, expected)
 
         msg = "the 'dtype' parameter is not supported"
-        tm.assert_raises_regex(ValueError, msg, np.cumsum,
-                               self.bseries, dtype=np.int64)
+        with pytest.raises(ValueError, match=msg):
+            np.cumsum(self.bseries, dtype=np.int64)
 
         msg = "the 'out' parameter is not supported"
-        tm.assert_raises_regex(ValueError, msg, np.cumsum,
-                               self.zbseries, out=result)
+        with pytest.raises(ValueError, match=msg):
+            np.cumsum(self.zbseries, out=result)
 
     def test_numpy_func_call(self):
         # no exception should be raised even though
@@ -1520,7 +1523,7 @@ def test_to_sparse():
 
 def test_constructor_mismatched_raises():
     msg = "Length of passed values is 2, index implies 3"
-    with tm.assert_raises_regex(ValueError, msg):
+    with pytest.raises(ValueError, match=msg):
         SparseSeries([1, 2], index=[1, 2, 3])
 
 

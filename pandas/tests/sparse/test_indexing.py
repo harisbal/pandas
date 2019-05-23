@@ -1,13 +1,12 @@
-# pylint: disable-msg=E1101,W0612
-
-import pytest
 import numpy as np
+import pytest
+
 import pandas as pd
-import pandas.util.testing as tm
 from pandas.core.sparse.api import SparseDtype
+import pandas.util.testing as tm
 
 
-class TestSparseSeriesIndexing(object):
+class TestSparseSeriesIndexing:
 
     def setup_method(self, method):
         self.orig = pd.Series([1, np.nan, np.nan, 3, np.nan])
@@ -451,7 +450,7 @@ class TestSparseSeriesIndexing(object):
 
         msg = ("iLocation based boolean indexing cannot "
                "use an indexable as a mask")
-        with tm.assert_raises_regex(ValueError, msg):
+        with pytest.raises(ValueError, match=msg):
             s.iloc[indexer]
 
 
@@ -600,7 +599,7 @@ class TestSparseSeriesMultiIndexing(TestSparseSeriesIndexing):
         assert sparse is not res
 
 
-class TestSparseDataFrameIndexing(object):
+class TestSparseDataFrameIndexing:
 
     def test_getitem(self):
         orig = pd.DataFrame([[1, np.nan, np.nan],
@@ -977,7 +976,7 @@ class TestSparseDataFrameIndexing(object):
         tm.assert_sp_frame_equal(res, exp)
 
 
-class TestMultitype(object):
+class TestMultitype:
 
     def setup_method(self, method):
         self.cols = ['string', 'int', 'float', 'object']

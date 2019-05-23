@@ -1,59 +1,40 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-import pytest
 import os
 import warnings
-
-from pandas import DataFrame, Series
-from pandas.compat import zip, iteritems
-from pandas.util._decorators import cache_readonly
-from pandas.core.dtypes.api import is_list_like
-import pandas.util.testing as tm
-from pandas.util.testing import (ensure_clean,
-                                 assert_is_valid_plot_return_object)
-import pandas.util._test_decorators as td
 
 import numpy as np
 from numpy import random
 
+from pandas.util._decorators import cache_readonly
+import pandas.util._test_decorators as td
+
+from pandas.core.dtypes.api import is_list_like
+
+from pandas import DataFrame, Series
+import pandas.util.testing as tm
+from pandas.util.testing import (
+    assert_is_valid_plot_return_object, ensure_clean)
+
 import pandas.plotting as plotting
 from pandas.plotting._tools import _flatten
+
 
 """
 This is a common base class used for various plotting tests
 """
 
 
-def _skip_if_no_scipy_gaussian_kde():
-    try:
-        from scipy.stats import gaussian_kde  # noqa
-    except ImportError:
-        pytest.skip("scipy version doesn't support gaussian_kde")
-
-
-def _ok_for_gaussian_kde(kind):
-    if kind in ['kde', 'density']:
-        try:
-            from scipy.stats import gaussian_kde  # noqa
-        except ImportError:
-            return False
-
-    return True
-
-
 @td.skip_if_no_mpl
-class TestPlotBase(object):
+class TestPlotBase:
 
     def setup_method(self, method):
 
         import matplotlib as mpl
         mpl.rcdefaults()
 
-        self.mpl_ge_2_0_1 = plotting._compat._mpl_ge_2_0_1()
-        self.mpl_ge_2_1_0 = plotting._compat._mpl_ge_2_1_0()
-        self.mpl_ge_2_2_0 = plotting._compat._mpl_ge_2_2_0()
-        self.mpl_ge_2_2_2 = plotting._compat._mpl_ge_2_2_2()
+        self.mpl_ge_2_2_3 = plotting._compat._mpl_ge_2_2_3()
         self.mpl_ge_3_0_0 = plotting._compat._mpl_ge_3_0_0()
 
         self.bp_n_objects = 7
@@ -434,7 +415,7 @@ class TestPlotBase(object):
             assert isinstance(returned, Series)
 
             assert sorted(returned.keys()) == sorted(expected_keys)
-            for key, value in iteritems(returned):
+            for key, value in returned.items():
                 assert isinstance(value, types[return_type])
                 # check returned dict has correct mapping
                 if return_type == 'axes':
@@ -467,8 +448,6 @@ class TestPlotBase(object):
 
         spndx = 1
         for kind in kinds:
-            if not _ok_for_gaussian_kde(kind):
-                continue
 
             self.plt.subplot(1, 4 * len(kinds), spndx)
             spndx += 1

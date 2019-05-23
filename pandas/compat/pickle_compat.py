@@ -2,12 +2,12 @@
 Support pre-0.12 series pickle compatibility.
 """
 
-import sys
-import pandas  # noqa
 import copy
 import pickle as pkl
-from pandas import compat, Index
-from pandas.compat import u, string_types  # noqa
+import sys
+
+import pandas  # noqa
+from pandas import Index
 
 
 def load_reduce(self):
@@ -39,7 +39,7 @@ def load_reduce(self):
         # try to re-encode the arguments
         if getattr(self, 'encoding', None) is not None:
             args = tuple(arg.encode(self.encoding)
-                         if isinstance(arg, string_types)
+                         if isinstance(arg, str)
                          else arg for arg in args)
             try:
                 stack[-1] = func(*args)
@@ -138,27 +138,14 @@ _class_locations_map = {
 # our Unpickler sub-class to override methods and some dispatcher
 # functions for compat
 
-if compat.PY3:
-    class Unpickler(pkl._Unpickler):
+class Unpickler(pkl._Unpickler):  # type: ignore
 
-        def find_class(self, module, name):
-            # override superclass
-            key = (module, name)
-            module, name = _class_locations_map.get(key, key)
-            return super(Unpickler, self).find_class(module, name)
+    def find_class(self, module, name):
+        # override superclass
+        key = (module, name)
+        module, name = _class_locations_map.get(key, key)
+        return super().find_class(module, name)
 
-else:
-
-    class Unpickler(pkl.Unpickler):
-
-        def find_class(self, module, name):
-            # override superclass
-            key = (module, name)
-            module, name = _class_locations_map.get(key, key)
-            __import__(module)
-            mod = sys.modules[module]
-            klass = getattr(mod, name)
-            return klass
 
 Unpickler.dispatch = copy.copy(Unpickler.dispatch)
 Unpickler.dispatch[pkl.REDUCE[0]] = load_reduce
@@ -199,7 +186,7 @@ except (AttributeError, KeyError):
     pass
 
 
-def load(fh, encoding=None, compat=False, is_verbose=False):
+def load(fh, encoding=None, is_verbose=False):
     """load a pickle, with a provided encoding
 
     if compat is True:
@@ -208,10 +195,9 @@ def load(fh, encoding=None, compat=False, is_verbose=False):
 
     Parameters
     ----------
-    fh: a filelike object
-    encoding: an optional encoding
-    compat: provide Series compatibility mode, boolean, default False
-    is_verbose: show exception output
+    fh : a filelike object
+    encoding : an optional encoding
+    is_verbose : show exception output
     """
 
     try:

@@ -1,15 +1,10 @@
 # being a bit too dynamic
-# pylint: disable=E1101
-from __future__ import division
-
-import warnings
 from contextlib import contextmanager
+import warnings
 
 import numpy as np
 
 from pandas.core.dtypes.common import is_list_like
-from pandas.compat import lrange, lmap
-import pandas.compat as compat
 
 
 def _get_standard_colors(num_colors=None, colormap=None, color_type='default',
@@ -17,13 +12,13 @@ def _get_standard_colors(num_colors=None, colormap=None, color_type='default',
     import matplotlib.pyplot as plt
 
     if color is None and colormap is not None:
-        if isinstance(colormap, compat.string_types):
+        if isinstance(colormap, str):
             import matplotlib.cm as cm
             cmap = colormap
             colormap = cm.get_cmap(colormap)
             if colormap is None:
                 raise ValueError("Colormap {0} is not recognized".format(cmap))
-        colors = lmap(colormap, np.linspace(0, 1, num=num_colors))
+        colors = [colormap(num) for num in np.linspace(0, 1, num=num_colors)]
     elif color is not None:
         if colormap is not None:
             warnings.warn("'color' and 'colormap' cannot be used "
@@ -39,8 +34,10 @@ def _get_standard_colors(num_colors=None, colormap=None, color_type='default',
             except KeyError:
                 colors = list(plt.rcParams.get('axes.color_cycle',
                                                list('bgrcmyk')))
-            if isinstance(colors, compat.string_types):
+            if isinstance(colors, str):
                 colors = list(colors)
+
+            colors = colors[0:num_colors]
         elif color_type == 'random':
             import pandas.core.common as com
 
@@ -50,11 +47,11 @@ def _get_standard_colors(num_colors=None, colormap=None, color_type='default',
                 rs = com.random_state(column)
                 return rs.rand(3).tolist()
 
-            colors = lmap(random_color, lrange(num_colors))
+            colors = [random_color(num) for num in range(num_colors)]
         else:
             raise ValueError("color_type must be either 'default' or 'random'")
 
-    if isinstance(colors, compat.string_types):
+    if isinstance(colors, str):
         import matplotlib.colors
         conv = matplotlib.colors.ColorConverter()
 
@@ -80,7 +77,10 @@ def _get_standard_colors(num_colors=None, colormap=None, color_type='default',
             # mpl will raise error any of them is invalid
             pass
 
-    if len(colors) != num_colors:
+    # Append more colors by cycling if there is not enough color.
+    # Extra colors will be ignored by matplotlib if there are more colors
+    # than needed and nothing needs to be done here.
+    if len(colors) < num_colors:
         try:
             multiple = num_colors // len(colors) - 1
         except ZeroDivisionError:
@@ -108,29 +108,29 @@ class _Options(dict):
     def __init__(self, deprecated=False):
         self._deprecated = deprecated
         # self['xaxis.compat'] = False
-        super(_Options, self).__setitem__('xaxis.compat', False)
+        super().__setitem__('xaxis.compat', False)
 
     def __getitem__(self, key):
         key = self._get_canonical_key(key)
         if key not in self:
             raise ValueError(
                 '{key} is not a valid pandas plotting option'.format(key=key))
-        return super(_Options, self).__getitem__(key)
+        return super().__getitem__(key)
 
     def __setitem__(self, key, value):
         key = self._get_canonical_key(key)
-        return super(_Options, self).__setitem__(key, value)
+        return super().__setitem__(key, value)
 
     def __delitem__(self, key):
         key = self._get_canonical_key(key)
         if key in self._DEFAULT_KEYS:
             raise ValueError(
                 'Cannot remove default parameter {key}'.format(key=key))
-        return super(_Options, self).__delitem__(key)
+        return super().__delitem__(key)
 
     def __contains__(self, key):
         key = self._get_canonical_key(key)
-        return super(_Options, self).__contains__(key)
+        return super().__contains__(key)
 
     def reset(self):
         """

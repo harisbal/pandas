@@ -2,39 +2,30 @@
 Data structures for sparse float data. Life is made simpler by dealing only
 with float64 data
 """
-
-# pylint: disable=E1101,E1103,W0231
-
-import numpy as np
+from collections import abc
 import warnings
 
-from pandas.core.dtypes.common import (
-    is_scalar,
-)
-from pandas.core.dtypes.missing import isna, notna, is_integer
+import numpy as np
 
-from pandas import compat
-from pandas.compat.numpy import function as nv
-from pandas.core.index import Index
-from pandas.core.series import Series
-from pandas.core.dtypes.generic import ABCSeries, ABCSparseSeries
-from pandas.core.internals import SingleBlockManager
-from pandas.core import generic
-import pandas.core.ops as ops
 import pandas._libs.index as libindex
+import pandas._libs.sparse as splib
+from pandas._libs.sparse import BlockIndex, IntIndex
+from pandas.compat.numpy import function as nv
 from pandas.util._decorators import Appender, Substitution
 
-from pandas.core.arrays import (
-    SparseArray,
-)
+from pandas.core.dtypes.common import is_integer, is_scalar
+from pandas.core.dtypes.generic import ABCSeries, ABCSparseSeries
+from pandas.core.dtypes.missing import isna, notna
+
+from pandas.core import generic
+from pandas.core.arrays import SparseArray
 from pandas.core.arrays.sparse import SparseAccessor
-from pandas._libs.sparse import BlockIndex, IntIndex
-import pandas._libs.sparse as splib
-
+from pandas.core.index import Index
+from pandas.core.internals import SingleBlockManager
+import pandas.core.ops as ops
+from pandas.core.series import Series
 from pandas.core.sparse.scipy_sparse import (
-    _sparse_series_to_coo,
-    _coo_to_sparse_series)
-
+    _coo_to_sparse_series, _sparse_series_to_coo)
 
 _shared_doc_kwargs = dict(axes='index', klass='SparseSeries',
                           axes_single_arg="{0, 'index'}",
@@ -88,13 +79,13 @@ class SparseSeries(Series):
             if index is not None:
                 data = data.reindex(index)
 
-        elif isinstance(data, compat.Mapping):
+        elif isinstance(data, abc.Mapping):
             data, index = Series()._init_dict(data, index=index)
 
         elif is_scalar(data) and index is not None:
             data = np.full(len(index), fill_value=data)
 
-        super(SparseSeries, self).__init__(
+        super().__init__(
             SparseArray(data,
                         sparse_index=sparse_index,
                         kind=kind,
@@ -226,9 +217,9 @@ class SparseSeries(Series):
         return SparseArray(self.values, sparse_index=self.sp_index,
                            fill_value=fill_value, kind=kind, copy=copy)
 
-    def __unicode__(self):
+    def __str__(self):
         # currently, unicode is same as repr...fixes infinite loop
-        series_rep = Series.__unicode__(self)
+        series_rep = Series.__str__(self)
         rep = '{series}\n{index!r}'.format(series=series_rep,
                                            index=self.sp_index)
         return rep
@@ -302,7 +293,7 @@ class SparseSeries(Series):
         if is_integer(key) and key not in self.index:
             return self._get_val_at(key)
         else:
-            return super(SparseSeries, self).__getitem__(key)
+            return super().__getitem__(key)
 
     def _get_values(self, indexer):
         try:
@@ -473,9 +464,8 @@ class SparseSeries(Series):
     def reindex(self, index=None, method=None, copy=True, limit=None,
                 **kwargs):
         # TODO: remove?
-        return super(SparseSeries, self).reindex(index=index, method=method,
-                                                 copy=copy, limit=limit,
-                                                 **kwargs)
+        return super().reindex(index=index, method=method, copy=copy,
+                               limit=limit, **kwargs)
 
     def sparse_reindex(self, new_index):
         """

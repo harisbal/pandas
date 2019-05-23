@@ -6,11 +6,9 @@ import warnings
 
 import numpy as np
 
-from pandas.compat import range, zip
 from pandas.errors import PerformanceWarning
 
 import pandas as pd
-from pandas import compat
 import pandas.core.common as com
 from pandas.core.computation.common import _result_type_many
 
@@ -30,9 +28,8 @@ def _align_core_single_unary_op(term):
 
 
 def _zip_axes_from_type(typ, new_axes):
-    axes = {}
-    for ax_ind, ax_name in compat.iteritems(typ._AXIS_NAMES):
-        axes[ax_name] = new_axes[ax_ind]
+    axes = {ax_name: new_axes[ax_ind]
+            for ax_ind, ax_name in typ._AXIS_NAMES.items()}
     return axes
 
 
@@ -86,7 +83,7 @@ def _align_core(terms):
             if not axes[ax].is_(itm):
                 axes[ax] = axes[ax].join(itm, how='outer')
 
-    for i, ndim in compat.iteritems(ndims):
+    for i, ndim in ndims.items():
         for axis, items in zip(range(ndim), axes):
             ti = terms[i].value
 

@@ -5,7 +5,7 @@ import pandas.util.testing as tm
 from pandas import date_range, MultiIndex
 
 
-class GetLoc(object):
+class GetLoc:
 
     def setup(self):
         self.mi_large = MultiIndex.from_product(
@@ -40,7 +40,7 @@ class GetLoc(object):
             self.mi_small.get_loc((99, 'A', 'A'))
 
 
-class Duplicates(object):
+class Duplicates:
 
     def setup(self):
         size = 65536
@@ -54,7 +54,7 @@ class Duplicates(object):
         self.mi_unused_levels.remove_unused_levels()
 
 
-class Integer(object):
+class Integer:
 
     def setup(self):
         self.mi_int = MultiIndex.from_product([np.arange(1000),
@@ -72,21 +72,21 @@ class Integer(object):
         self.mi_int.is_monotonic
 
 
-class Duplicated(object):
+class Duplicated:
 
     def setup(self):
         n, k = 200, 5000
         levels = [np.arange(n),
                   tm.makeStringIndex(n).values,
                   1000 + np.arange(n)]
-        labels = [np.random.choice(n, (k * n)) for lev in levels]
-        self.mi = MultiIndex(levels=levels, labels=labels)
+        codes = [np.random.choice(n, (k * n)) for lev in levels]
+        self.mi = MultiIndex(levels=levels, codes=codes)
 
     def time_duplicated(self):
         self.mi.duplicated()
 
 
-class Sortlevel(object):
+class Sortlevel:
 
     def setup(self):
         n = 1182720
@@ -110,7 +110,7 @@ class Sortlevel(object):
         self.mi.sortlevel(1)
 
 
-class Values(object):
+class Values:
 
     def setup_cache(self):
 

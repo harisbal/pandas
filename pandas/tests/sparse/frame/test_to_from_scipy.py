@@ -1,12 +1,12 @@
-import pytest
 import numpy as np
-from pandas.util import testing as tm
+import pytest
+
+from pandas.core.dtypes.common import is_bool_dtype
+
+import pandas as pd
 from pandas import SparseDataFrame, SparseSeries
 from pandas.core.sparse.api import SparseDtype
-from distutils.version import LooseVersion
-from pandas.core.dtypes.common import (
-    is_bool_dtype,
-)
+from pandas.util import testing as tm
 
 scipy = pytest.importorskip('scipy')
 ignore_matrix_warning = pytest.mark.filterwarnings(
@@ -75,9 +75,8 @@ def test_from_to_scipy_object(spmatrix, fill_value):
     columns = list('cd')
     index = list('ab')
 
-    if (spmatrix is scipy.sparse.dok_matrix and LooseVersion(
-            scipy.__version__) >= LooseVersion('0.19.0')):
-        pytest.skip("dok_matrix from object does not work in SciPy >= 0.19")
+    if spmatrix is scipy.sparse.dok_matrix:
+        pytest.skip("dok_matrix from object does not work in SciPy")
 
     # Make one ndarray and from it one sparse matrix, both to be used for
     # constructing frames and comparing results
@@ -168,3 +167,16 @@ def test_from_scipy_fillna(spmatrix):
         expected[col].fill_value = -1
 
     tm.assert_sp_frame_equal(sdf, expected)
+
+
+def test_index_names_multiple_nones():
+    # https://github.com/pandas-dev/pandas/pull/24092
+    sparse = pytest.importorskip("scipy.sparse")
+
+    s = (pd.Series(1, index=pd.MultiIndex.from_product([['A', 'B'], [0, 1]]))
+           .to_sparse())
+    result, _, _ = s.to_coo()
+    assert isinstance(result, sparse.coo_matrix)
+    result = result.toarray()
+    expected = np.ones((2, 2), dtype="int64")
+    tm.assert_numpy_array_equal(result, expected)
