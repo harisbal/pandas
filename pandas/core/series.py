@@ -2153,16 +2153,9 @@ class Series(base.IndexOpsMixin, generic.NDFrame):
             # scalar
             return result.iloc[0]
 
-    def perc(self, decimals=None):
-
-        if is_numeric_dtype(self._data):
-            result = self._data.div(self._data.sum())
-            if decimals:
-                result = result.round(decimals)
-
-            return self._constructor(result,
-                                     index=self.index,
-                                     name=self.name)
+    def perc(self):
+        result = self.__div__(self.sum())
+        return result
 
 
     def corr(self, other, method='pearson', min_periods=None):
